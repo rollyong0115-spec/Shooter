@@ -1,8 +1,9 @@
--- Shooter Utility Script: Speed, Auto Reload, Head Aim, and God Mode
+-- Shooter Utility Script: Speed, God Mode, Auto Reload, Head Aim, & Minimize Toggle
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -12,7 +13,7 @@ local godModeEnabled = false
 local autoReloadEnabled = false
 local headAimEnabled = false
 
-local CUSTOM_SPEED = 24 -- Adjust walking speed here (default is usually 16)
+local CUSTOM_SPEED = 24
 
 -- ==================== UI SETUP ====================
 local function createUI()
@@ -26,10 +27,11 @@ local function createUI()
 	screenGui.DisplayOrder = 999
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
+	-- Main Menu Frame
 	local mainFrame = Instance.new("Frame")
 	mainFrame.Name = "MainFrame"
 	mainFrame.Size = UDim2.new(0, 180, 0, 210)
-	mainFrame.Position = UDim2.new(0.8, -90, 0.3, 0)
+	mainFrame.Position = UDim2.new(0.75, -90, 0.3, 0)
 	mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 	mainFrame.BorderSizePixel = 0
 	mainFrame.Parent = screenGui
@@ -50,6 +52,29 @@ local function createUI()
 	local titleCorner = Instance.new("UICorner")
 	titleCorner.CornerRadius = UDim.new(0, 12)
 	titleCorner.Parent = title
+
+	-- Minimize (Circular) Button
+	local minButton = Instance.new("TextButton")
+	minButton.Name = "MinButton"
+	minButton.Size = UDim2.new(0, 45, 0, 45)
+	minButton.Position = UDim2.new(0.9, -45, 0.15, 0)
+	minButton.BackgroundColor3 = Color3.fromRGB(0, 130, 255)
+	minButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	minButton.Font = Enum.Font.GothamBold
+	minButton.TextSize = 18
+	minButton.Text = "⚙️"
+	minButton.Parent = screenGui
+
+	local minCorner = Instance.new("UICorner")
+	minCorner.CornerRadius = UDim.new(1, 0) -- Perfect Circle
+	minCorner.Parent = minButton
+
+	-- Toggle Menu Visibility
+	local menuVisible = true
+	minButton.MouseButton1Click:Connect(function()
+		menuVisible = not menuVisible
+		mainFrame.Visible = menuVisible
+	end)
 
 	-- Helper function to create toggle buttons
 	local function createToggle(name, yPos, callback)
@@ -86,7 +111,7 @@ local function createUI()
 	createToggle("Auto Reload", 116, function(state) autoReloadEnabled = state end)
 	createToggle("Head Aim", 154, function(state) headAimEnabled = state end)
 
-	-- Draggable Window Logic
+	-- Draggable Window Logic for Main Frame
 	local dragging, dragStart, startPos
 	title.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -109,6 +134,29 @@ local function createUI()
 		end
 	end)
 
+	-- Draggable Minimize Button Logic
+	local minDragging, minDragStart, minStartPos
+	minButton.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			minDragging = true
+			minDragStart = input.Position
+			minStartPos = minButton.Position
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if minDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta = input.Position - minDragStart
+			minButton.Position = UDim2.new(minStartPos.X.Scale, minStartPos.X.Offset + delta.X, minStartPos.Y.Scale, minStartPos.Y.Offset + delta.Y)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			minDragging = false
+		end
+	end)
+
 	return screenGui
 end
 
@@ -122,34 +170,32 @@ RunService.Heartbeat:Connect(function()
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not root then return end
 
-	-- 1. Speed Boost
+	-- 1. Speed Boost (Enforced every frame)
 	if speedEnabled then
 		humanoid.WalkSpeed = CUSTOM_SPEED
 	end
 
-	-- 2. God Mode Loop
+	-- 2. God Mode (Using a safe high health value instead of math.huge)
 	if godModeEnabled then
 		pcall(function()
-			humanoid.MaxHealth = math.huge
-			humanoid.Health = math.huge
+			humanoid.MaxHealth = 999999
+			humanoid.Health = 999999
 		end)
 	end
 
-	-- 3. Auto Reload simulation (presses 'R' or triggers tool reload if available)
+	-- 3. Auto Reload (Simulates pressing 'R' using VirtualInputManager)
 	if autoReloadEnabled then
 		pcall(function()
-			-- Simulates reloading check (VirtualInputManager or tool check)
 			local tool = char:FindFirstChildOfClass("Tool")
-			if tool and tool:FindFirstChild("Ammo") and tool.Ammo.Value <= 2 then
-				-- Fires reload action if supported by the game environment
-				vim:SendKeyEvent(true, Enum.KeyCode.R, false, game)
-				task.wait(0.1)
-				vim:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+			if tool then
+				VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+				task.wait(0.05)
+				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
 			end
 		end)
 	end
 
-	-- 4. Head Aim Assistance (Snaps camera slightly toward nearest enemy head)
+	-- 4. Head Aim Assistance (Smoothly shifts camera toward enemy heads)
 	if headAimEnabled then
 		pcall(function()
 			local closestHead = nil
@@ -161,10 +207,9 @@ RunService.Heartbeat:Connect(function()
 					local enemyHead = enemyChar:FindFirstChild("Head")
 					local enemyHumanoid = enemyChar:FindFirstChildOfClass("Humanoid")
 
-					-- Ensure target is alive and on a different team/valid
 					if enemyHead and enemyHumanoid and enemyHumanoid.Health > 0 then
 						local dist = (enemyHead.Position - root.Position).Magnitude
-						if dist < shortestDist and dist < 100 then -- Within 100 studs range
+						if dist < shortestDist and dist < 120 then
 							shortestDist = dist
 							closestHead = enemyHead
 						end
@@ -173,11 +218,10 @@ RunService.Heartbeat:Connect(function()
 			end
 
 			if closestHead then
-				-- Smoothly point camera toward the enemy's head
-				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, closestHead.Position), 0.15)
+				camera.CFrame = camera.CFrame:Lerp(CFrame.new(camera.CFrame.Position, closestHead.Position), 0.2)
 			end
 		end)
 	end
 end)
 
-print("[ShooterScript] Menu loaded successfully!")
+print("[ShooterScript] Fully updated with Minimize and fixes!")
