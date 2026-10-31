@@ -1,4 +1,4 @@
--- Shooter Pro Script: 100k HP, Wall Hack (ESP), Auto Aim, Head Assist, Fly, Speed, Auto Reload & Minimize
+-- Shooter Pro Script: Unlimited Ammo, ESP, Auto Aim, Fly, Speed & HP
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -10,11 +10,11 @@ local camera = Workspace.CurrentCamera
 
 local speedEnabled = false
 local hpBoostEnabled = false
-local autoReloadEnabled = false
+local ammoEnabled = false
+local espEnabled = false
 local headAimEnabled = false
 local autoAimEnabled = false
 local flyEnabled = false
-local espEnabled = false
 
 local CUSTOM_SPEED = 24
 local FLY_SPEED = 40
@@ -22,7 +22,7 @@ local FLY_SPEED = 40
 local bodyVelocity = nil
 local bodyGyro = nil
 local flyConnection = nil
-local espHighlights = {}
+local espBoxes = {}
 
 -- ==================== UI SETUP ====================
 local function createUI()
@@ -36,13 +36,13 @@ local function createUI()
 	screenGui.DisplayOrder = 999
 	screenGui.Parent = player:WaitForChild("PlayerGui")
 
-	-- Main Menu Frame
 	local mainFrame = Instance.new("Frame")
 	mainFrame.Name = "MainFrame"
-	mainFrame.Size = UDim2.new(0, 180, 0, 310)
-	mainFrame.Position = UDim2.new(0.75, -90, 0.2, 0)
+	mainFrame.Size = UDim2.new(0, 200, 0, 365)
+	mainFrame.Position = UDim2.new(0.5, -100, 0.5, -182)
 	mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 	mainFrame.BorderSizePixel = 0
+	mainFrame.Visible = true
 	mainFrame.Parent = screenGui
 
 	local corner = Instance.new("UICorner")
@@ -50,7 +50,7 @@ local function createUI()
 	corner.Parent = mainFrame
 
 	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(1, 0, 0, 30)
+	title.Size = UDim2.new(1, 0, 0, 35)
 	title.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
 	title.TextColor3 = Color3.fromRGB(255, 255, 255)
 	title.Font = Enum.Font.GothamBold
@@ -62,33 +62,10 @@ local function createUI()
 	titleCorner.CornerRadius = UDim.new(0, 12)
 	titleCorner.Parent = title
 
-	-- Minimize (Circular) Button
-	local minButton = Instance.new("TextButton")
-	minButton.Name = "MinButton"
-	minButton.Size = UDim2.new(0, 45, 0, 45)
-	minButton.Position = UDim2.new(0.9, -45, 0.15, 0)
-	minButton.BackgroundColor3 = Color3.fromRGB(0, 130, 255)
-	minButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	minButton.Font = Enum.Font.GothamBold
-	minButton.TextSize = 18
-	minButton.Text = "⚙️"
-	minButton.Parent = screenGui
-
-	local minCorner = Instance.new("UICorner")
-	minCorner.CornerRadius = UDim.new(1, 0)
-	minCorner.Parent = minButton
-
-	local menuVisible = true
-	minButton.MouseButton1Click:Connect(function()
-		menuVisible = not menuVisible
-		mainFrame.Visible = menuVisible
-	end)
-
-	-- Helper function to create toggle buttons
 	local function createToggle(name, yPos, callback)
 		local btn = Instance.new("TextButton")
-		btn.Size = UDim2.new(0, 160, 0, 30)
-		btn.Position = UDim2.new(0.5, -80, 0, yPos)
+		btn.Size = UDim2.new(0, 180, 0, 32)
+		btn.Position = UDim2.new(0.5, -90, 0, yPos)
 		btn.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
 		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 		btn.Font = Enum.Font.GothamSemibold
@@ -114,15 +91,52 @@ local function createUI()
 		end)
 	end
 
-	createToggle("Speed Boost", 38, function(state) speedEnabled = state end)
-	createToggle("100k HP Boost", 72, function(state) hpBoostEnabled = state end)
-	createToggle("Auto Reload", 106, function(state) autoReloadEnabled = state end)
-	createToggle("Wall Hack (ESP)", 140, function(state) espEnabled = state end)
-	createToggle("Head Assist", 174, function(state) headAimEnabled = state end)
-	createToggle("Auto Aim (Lock)", 208, function(state) autoAimEnabled = state end)
-	createToggle("Fly Mode", 242, function(state) flyEnabled = state end)
+	createToggle("Speed Boost", 42, function(state) speedEnabled = state end)
+	createToggle("100k HP Boost", 78, function(state) hpBoostEnabled = state end)
+	createToggle("Unlimited Ammo", 114, function(state) ammoEnabled = state end)
+	createToggle("Wall Hack (ESP)", 150, function(state) espEnabled = state end)
+	createToggle("Head Assist", 186, function(state) headAimEnabled = state end)
+	createToggle("Auto Aim (Lock)", 222, function(state) autoAimEnabled = state end)
+	createToggle("Fly Mode", 258, function(state) flyEnabled = state end)
 
-	-- Draggable Window Logic for Main Frame
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Size = UDim2.new(0, 180, 0, 28)
+	closeBtn.Position = UDim2.new(0.5, -90, 0, 324)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 12
+	closeBtn.Text = "Minimize Menu"
+	closeBtn.Parent = mainFrame
+
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.Parent = closeBtn
+
+	local minButton = Instance.new("TextButton")
+	minButton.Name = "MinButton"
+	minButton.Size = UDim2.new(0, 45, 0, 45)
+	minButton.Position = UDim2.new(0.85, 0, 0.1, 0)
+	minButton.BackgroundColor3 = Color3.fromRGB(0, 130, 255)
+	minButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	minButton.Font = Enum.Font.GothamBold
+	minButton.TextSize = 18
+	minButton.Text = "⚙️"
+	minButton.Parent = screenGui
+
+	local minCorner = Instance.new("UICorner")
+	minCorner.CornerRadius = UDim.new(1, 0)
+	minCorner.Parent = minButton
+
+	closeBtn.MouseButton1Click:Connect(function()
+		mainFrame.Visible = false
+		minButton.Visible = true
+	end)
+
+	minButton.MouseButton1Click:Connect(function()
+		mainFrame.Visible = not mainFrame.Visible
+	end)
+
 	local dragging, dragStart, startPos
 	title.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -145,35 +159,12 @@ local function createUI()
 		end
 	end)
 
-	-- Draggable Minimize Button Logic
-	local minDragging, minDragStart, minStartPos
-	minButton.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			minDragging = true
-			minDragStart = input.Position
-			minStartPos = minButton.Position
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if minDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			local delta = input.Position - minDragStart
-			minButton.Position = UDim2.new(minStartPos.X.Scale, minStartPos.X.Offset + delta.X, minStartPos.Y.Scale, minStartPos.Y.Offset + delta.Y)
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			minDragging = false
-		end
-	end)
-
 	return screenGui
 end
 
 createUI()
 
--- ==================== FLY FUNCTIONS ====================
+-- ==================== FLY LOGIC ====================
 local function startFly(char)
 	local root = char:FindFirstChild("HumanoidRootPart")
 	local humanoid = char:FindFirstChildOfClass("Humanoid")
@@ -220,7 +211,7 @@ local function stopFly(char)
 	if humanoid then humanoid.PlatformStand = false end
 end
 
--- ==================== MAIN LOOP ====================
+-- ==================== RUNTIME LOOP ====================
 RunService.Heartbeat:Connect(function()
 	local char = player.Character
 	if not char then return end
@@ -228,12 +219,12 @@ RunService.Heartbeat:Connect(function()
 	local root = char:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not root then return end
 
-	-- 1. Speed Boost
+	-- 1. Speed
 	if speedEnabled then
 		humanoid.WalkSpeed = CUSTOM_SPEED
 	end
 
-	-- 2. 100k HP Boost Loop
+	-- 2. 100k HP
 	if hpBoostEnabled then
 		pcall(function()
 			humanoid.MaxHealth = 100000
@@ -241,45 +232,51 @@ RunService.Heartbeat:Connect(function()
 		end)
 	end
 
-	-- 3. Auto Reload
-	if autoReloadEnabled then
+	-- 3. Unlimited Ammo
+	if ammoEnabled then
 		pcall(function()
 			local tool = char:FindFirstChildOfClass("Tool")
 			if tool then
-				VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
-				task.wait(0.05)
-				VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+				for _, descendant in pairs(tool:GetDescendants()) do
+					if descendant:IsA("IntValue") or descendant:IsA("NumberValue") then
+						if string.lower(descendant.Name):find("ammo") or string.lower(descendant.Name):find("clip") or string.lower(descendant.Name):find("bullet") then
+							descendant.Value = 999
+						end
+					end
+				end
 			end
 		end)
 	end
 
-	-- 4. Wall Hack (ESP) Handler
+	-- 4. Wall Hack (ESP)
 	if espEnabled then
 		pcall(function()
 			for _, p in pairs(Players:GetPlayers()) do
 				if p ~= player and p.Character then
 					local enemyChar = p.Character
-					if not espHighlights[p] and enemyChar:FindFirstChild("HumanoidRootPart") then
+					local enemyRoot = enemyChar:FindFirstChild("HumanoidRootPart")
+					if enemyRoot and not espBoxes[p] then
 						local hl = Instance.new("Highlight")
-						hl.Name = "ESPHighlight"
-						hl.FillColor = Color3.fromRGB(255, 0, 0)
-						hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-						hl.FillTransparency = 0.4
+						hl.Name = "CustomESP"
 						hl.Adornee = enemyChar
+						hl.FillColor = Color3.fromRGB(255, 50, 50)
+						hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+						hl.FillTransparency = 0.3
+						hl.OutlineTransparency = 0
 						hl.Parent = enemyChar
-						espHighlights[p] = hl
+						espBoxes[p] = hl
 					end
 				end
 			end
 		end)
 	else
-		for p, hl in pairs(espHighlights) do
+		for p, hl in pairs(espBoxes) do
 			if hl then hl:Destroy() end
 		end
-		espHighlights = {}
+		espBoxes = {}
 	end
 
-	-- 5. Head Assist (Smooth tracking)
+	-- 5. Head Assist
 	if headAimEnabled and not autoAimEnabled then
 		pcall(function()
 			local closestHead = nil
@@ -303,12 +300,13 @@ RunService.Heartbeat:Connect(function()
 		end)
 	end
 
-	-- 6. Auto Aim (Hard Snap Lock to Enemy Head)
+	-- 6. Auto Aim
 	if autoAimEnabled then
 		pcall(function()
 			local closestHead = nil
 			local shortestDist = math.huge
 			for _, p in pairs(Players:GetPlayers()) do
+				if p ~= player and p.Storage and p.Character then end -- safety check
 				if p ~= player and p.Character then
 					local enemyHead = p.Character:FindFirstChild("Head")
 					local enemyHum = p.Character:FindFirstChildOfClass("Humanoid")
@@ -327,7 +325,7 @@ RunService.Heartbeat:Connect(function()
 		end)
 	end
 
-	-- 7. Fly Handler
+	-- 7. Fly
 	if flyEnabled and not flyConnection then
 		startFly(char)
 	elseif not flyEnabled and flyConnection then
@@ -335,4 +333,4 @@ RunService.Heartbeat:Connect(function()
 	end
 end)
 
-print("[Shooter Pro] Loaded with 100k HP Boost, Wall Hack, and more!")
+print("[Shooter Pro] Unlimited Ammo added successfully!")
